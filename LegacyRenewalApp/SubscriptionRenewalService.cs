@@ -14,14 +14,16 @@ namespace LegacyRenewalApp
         private readonly ICustomerRepository _customerRepository;
         private readonly ISubscriptionPlanRepository _planRepository;
         private readonly IRenewalServiceValidator _validator;
-        private readonly IDiscountCalculator _discountCalculator;
+        private readonly IPriceCalculator _priceCalculator;
+        private readonly IInvoiceGenerator _invoiceGenerator;
         private readonly IBillingGateway _billingGateway;
 
         public SubscriptionRenewalService()
             : this(new CustomerRepository(), 
                   new SubscriptionPlanRepository(), 
                   new RenewalServiceValidator(), 
-                  new DiscountCalculator(),
+                  new PriceCalculator(),
+                  new InvoiceGenerator(),
                   new BillingGatewayAdapter())
         {}
 
@@ -29,15 +31,16 @@ namespace LegacyRenewalApp
             ICustomerRepository customerRepository, 
             ISubscriptionPlanRepository planRepository,
             IRenewalServiceValidator validator,
-            IDiscountCalculator discountCalculator,
+            IPriceCalculator priceCalculator,
+            IInvoiceGenerator invoiceGenerator,
             IBillingGateway billingGateway)
         {
             _customerRepository = customerRepository;
             _planRepository = planRepository;
             _validator = validator;
-            _discountCalculator = discountCalculator;
+            _priceCalculator = priceCalculator;
+            _invoiceGenerator = invoiceGenerator;
             _billingGateway = billingGateway;
-
         }
 
         public RenewalInvoice CreateRenewalInvoice(
@@ -72,29 +75,14 @@ namespace LegacyRenewalApp
             }
 
 
-            PaymentDetails paymentDetails = _discountCalculator.CalculateFinalAmount(
+            PaymentDetails paymentDetails = _priceCalculator.CalculateFinalAmount(
                 customer, plan, 
                 seatCount, 
                 includePremiumSupport, useLoyaltyPoints, 
                 payment
             );
 
-            var invoice = new RenewalInvoice
-            {
-                InvoiceNumber = $"INV-{DateTime.UtcNow:yyyyMMdd}-{customerId}-{normalizedPlanCode}",
-                CustomerName = customer.FullName,
-                PlanCode = normalizedPlanCode,
-                PaymentMethod = payment,
-                SeatCount = seatCount,
-                BaseAmount = Math.Round(paymentDetails.BaseAmount, 2, MidpointRounding.AwayFromZero),
-                DiscountAmount = Math.Round(paymentDetails.DiscountAmount, 2, MidpointRounding.AwayFromZero),
-                SupportFee = Math.Round(paymentDetails.SupportFee, 2, MidpointRounding.AwayFromZero),
-                PaymentFee = Math.Round(paymentDetails.PaymentFee, 2, MidpointRounding.AwayFromZero),
-                TaxAmount = Math.Round(paymentDetails.TaxAmount, 2, MidpointRounding.AwayFromZero),
-                FinalAmount = Math.Round(paymentDetails.FinalAmount, 2, MidpointRounding.AwayFromZero),
-                Notes = paymentDetails.Notes.Trim(),
-                GeneratedAt = DateTime.UtcNow
-            };
+            var invoice = _invoiceGenerator.GenerateInvoice(paymentDetails, customerId, normalizedPlanCode, customer, payment, seatCount);
 
             _billingGateway.SaveInvoice(invoice);
 
