@@ -1,4 +1,5 @@
-﻿using LegacyRenewalApp.Models;
+﻿using LegacyRenewalApp.Enums;
+using LegacyRenewalApp.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,6 +14,6 @@ namespace LegacyRenewalApp.Interfaces.Helpers
             Customer customer, SubscriptionPlan plan, 
             int seatCount,
             bool includePremiumSupport, bool useLoyaltyPoints, 
-            string normalizedPaymentMethod);
+            PaymentMethod paymentMethod);
     }
 }

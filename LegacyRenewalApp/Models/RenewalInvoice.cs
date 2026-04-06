@@ -1,3 +1,4 @@
+using LegacyRenewalApp.Enums;
 using System;
 
 namespace LegacyRenewalApp.Models
@@ -7,7 +8,7 @@ namespace LegacyRenewalApp.Models
         public string InvoiceNumber { get; set; } = string.Empty;
         public string CustomerName { get; set; } = string.Empty;
         public string PlanCode { get; set; } = string.Empty;
-        public string PaymentMethod { get; set; } = string.Empty;
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.None;
         public int SeatCount { get; set; }
         public decimal BaseAmount { get; set; }
         public decimal DiscountAmount { get; set; }

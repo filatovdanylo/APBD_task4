@@ -1,5 +1,8 @@
-﻿using LegacyRenewalApp.Interfaces.Helpers;
+﻿using LegacyRenewalApp.Enums;
+using LegacyRenewalApp.Interfaces.Helpers;
+using LegacyRenewalApp.Interfaces.Strategies;
 using LegacyRenewalApp.Models;
+using LegacyRenewalApp.Strategies;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,11 +14,47 @@ namespace LegacyRenewalApp.Helper
 {
     public class DiscountCalculator : IDiscountCalculator
     {
+
+        private static readonly Dictionary<PlanCode, ISupportFeeStrategy> _feeStrategies = 
+            new Dictionary<PlanCode, ISupportFeeStrategy>
+        {
+            [PlanCode.START] = new StartSupportFee(),
+            [PlanCode.PRO] = new ProSupportFee(),
+            [PlanCode.ENTERPRISE] = new EnterpriseSupportFee()
+        };
+
+        private static readonly Dictionary<PaymentMethod, (decimal Rate, string Note)> _paymentConfigs =
+            new Dictionary<PaymentMethod, (decimal Rate, string Note)>
+        {
+            [PaymentMethod.Card] = (0.02m, "card payment fee; "),
+            [PaymentMethod.BankTransfer] = (0.01m, "bank transfer fee; "),
+            [PaymentMethod.Paypal] = (0.035m, "paypal fee; "),
+            [PaymentMethod.Invoice] = (0m, "invoice payment; ")
+        };
+
+        private static readonly Dictionary<Country, decimal> _countryTaxRates =
+            new Dictionary<Country, decimal>
+        {
+                [Country.Poland] = (0.23m),
+                [Country.Germany] = (0.19m),
+                [Country.CzechRepublic] = (0.21m),
+                [Country.Norway] = (0.25m)
+        };
+
+        private static readonly Dictionary<CustomerSegment, IDiscountStrategy> _segmentDiscounts =
+            new Dictionary<CustomerSegment, IDiscountStrategy>
+        {
+                [CustomerSegment.Silver] = new SilverDiscountStrategy(),
+                [CustomerSegment.Gold] = new GoldDiscountStrategy(),
+                [CustomerSegment.Platinum] = new PlatinumDiscountStrategy(),
+                [CustomerSegment.Education] = new EducationDiscountStrategy() 
+        };
+
         public decimal calculateDiscount(
             Customer customer, SubscriptionPlan plan, 
             int seatCount,
             bool includePremiumSupport, bool useLoyaltyPoints, 
-            string normalizedPaymentMethod)
+            PaymentMethod paymentMethod)
         {
             if (!customer.IsActive)
             {
@@ -26,25 +65,10 @@ namespace LegacyRenewalApp.Helper
             decimal discountAmount = 0m;
             string notes = string.Empty;
 
-            if (customer.Segment == "Silver")
+            if (_segmentDiscounts.TryGetValue(customer.Segment, out var discountStrategy))
             {
-                discountAmount += baseAmount * 0.05m;
-                notes += "silver discount; ";
-            }
-            else if (customer.Segment == "Gold")
-            {
-                discountAmount += baseAmount * 0.10m;
-                notes += "gold discount; ";
-            }
-            else if (customer.Segment == "Platinum")
-            {
-                discountAmount += baseAmount * 0.15m;
-                notes += "platinum discount; ";
-            }
-            else if (customer.Segment == "Education" && plan.IsEducationEligible)
-            {
-                discountAmount += baseAmount * 0.20m;
-                notes += "education discount; ";
+                discountAmount += discountStrategy.CalculateDiscount(baseAmount, plan);
+                notes += discountStrategy.GetNote();
             }
 
             if (customer.YearsWithCompany >= 5)
@@ -89,68 +113,28 @@ namespace LegacyRenewalApp.Helper
             }
 
             decimal supportFee = 0m;
-            string planCode = plan.Code;
-            if (includePremiumSupport)
+            PlanCode planCode = plan.Code;
+            if (includePremiumSupport && 
+                _feeStrategies.TryGetValue(planCode, out var feeStrategy))
             {
-                if (planCode == "START")
-                {
-                    supportFee = 250m;
-                }
-                else if (planCode == "PRO")
-                {
-                    supportFee = 400m;
-                }
-                else if (planCode == "ENTERPRISE")
-                {
-                    supportFee = 700m;
-                }
-
+                supportFee = feeStrategy.CalculateFee();
                 notes += "premium support included; ";
             }
 
+
             decimal paymentFee = 0m;
-            if (normalizedPaymentMethod == "CARD")
-            {
-                paymentFee = (subtotalAfterDiscount + supportFee) * 0.02m;
-                notes += "card payment fee; ";
-            }
-            else if (normalizedPaymentMethod == "BANK_TRANSFER")
-            {
-                paymentFee = (subtotalAfterDiscount + supportFee) * 0.01m;
-                notes += "bank transfer fee; ";
-            }
-            else if (normalizedPaymentMethod == "PAYPAL")
-            {
-                paymentFee = (subtotalAfterDiscount + supportFee) * 0.035m;
-                notes += "paypal fee; ";
-            }
-            else if (normalizedPaymentMethod == "INVOICE")
-            {
-                paymentFee = 0m;
-                notes += "invoice payment; ";
-            }
-            else
+            if (!_paymentConfigs.TryGetValue(paymentMethod, out var config))
             {
                 throw new ArgumentException("Unsupported payment method");
             }
 
-            decimal taxRate = 0.20m;
-            if (customer.Country == "Poland")
-            {
-                taxRate = 0.23m;
-            }
-            else if (customer.Country == "Germany")
-            {
-                taxRate = 0.19m;
-            }
-            else if (customer.Country == "Czech Republic")
-            {
-                taxRate = 0.21m;
-            }
-            else if (customer.Country == "Norway")
-            {
-                taxRate = 0.25m;
-            }
+            paymentFee = (subtotalAfterDiscount + supportFee) * config.Rate;
+
+            notes += config.Note;
+
+
+            decimal taxRate = _countryTaxRates.TryGetValue(customer.Country, out var rate) 
+                ? rate : 0.20m;
 
             decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;
             decimal taxAmount = taxBase * taxRate;
