@@ -57,37 +57,28 @@ namespace LegacyRenewalApp.Helper
             bool includePremiumSupport, bool useLoyaltyPoints, 
             PaymentMethod paymentMethod)
         {
-            if (!customer.IsActive)
-            {
-                throw new InvalidOperationException("Inactive customers cannot renew subscriptions");
-            }
-
-            PaymentDetails paymentDetails = new PaymentDetails();
 
             decimal baseAmount = CalculateBaseAmount(plan, seatCount);
             var notes = new StringBuilder();
-            paymentDetails.BaseAmount = baseAmount;
 
             decimal discountAmount = CalculateDiscountAmount(customer, baseAmount, plan, 
                 ref notes, useLoyaltyPoints, seatCount);
-            paymentDetails.DiscountAmount = discountAmount;
 
             decimal subtotalAfterDiscount = CalculateSubTotalAfterDiscount(baseAmount, discountAmount, ref notes);
 
             decimal supportFee = CalculateSupportFee(plan, includePremiumSupport, ref notes);
-            paymentDetails.SupportFee = supportFee;
 
             decimal paymentFee = CalculatePaymentFee(paymentMethod, subtotalAfterDiscount, supportFee, ref notes);
-            paymentDetails.PaymentFee = paymentFee;
 
             decimal taxRate = GetTaxRateByCountry(customer);
 
-            decimal finalAmount = CalculateFinal(subtotalAfterDiscount, 
+            var taxedAmount = CalculateTaxedAmount(subtotalAfterDiscount, 
                 supportFee, paymentFee, taxRate, 
-                ref notes, ref paymentDetails);
+                ref notes);
 
-            paymentDetails.FinalAmount = finalAmount;
-            paymentDetails.Notes = notes.ToString();
+            decimal finalAmount = taxedAmount.FinalAmount;
+            decimal taxAmount = taxedAmount.TaxAmount;
+            PaymentDetails paymentDetails = new PaymentDetails(finalAmount, baseAmount, discountAmount, supportFee, paymentFee, taxAmount, notes.ToString());
 
             return paymentDetails;
         }
@@ -194,14 +185,14 @@ namespace LegacyRenewalApp.Helper
                 ? rate : _countryTaxRates[Country.Unknown];
         }
 
-        private decimal CalculateFinal(decimal subtotalAfterDiscount, decimal supportFee, 
-            decimal paymentFee, decimal taxRate, ref StringBuilder notes, ref PaymentDetails paymentDetails)
+        private (decimal FinalAmount, decimal TaxAmount) CalculateTaxedAmount(
+            decimal subtotalAfterDiscount, decimal supportFee,
+            decimal paymentFee, decimal taxRate,
+            ref StringBuilder notes)
         {
             decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;
             decimal taxAmount = taxBase * taxRate;
             decimal finalAmount = taxBase + taxAmount;
-
-            paymentDetails.TaxAmount = taxAmount;
 
             if (finalAmount < 500m)
             {
@@ -209,7 +200,7 @@ namespace LegacyRenewalApp.Helper
                 notes.Append("minimum invoice amount applied; ");
             }
 
-            return finalAmount;
+            return (finalAmount, taxAmount);
         }
 
     }

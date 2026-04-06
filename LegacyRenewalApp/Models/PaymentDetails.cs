@@ -29,8 +29,6 @@ namespace LegacyRenewalApp.Models
             TaxAmount = taxAmount;
             Notes = notes;
         }
-
-        public PaymentDetails() { }
             
     }
 }
