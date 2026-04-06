@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace LegacyRenewalApp.Helper
 {
-    public class DiscountCalculator : IDiscountCalculator
+    public class PriceCalculator : IPriceCalculator
     {
 
         private static readonly Dictionary<PlanCode, ISupportFeeStrategy> _feeStrategies = 
@@ -35,10 +35,11 @@ namespace LegacyRenewalApp.Helper
         private static readonly Dictionary<Country, decimal> _countryTaxRates =
             new Dictionary<Country, decimal>
         {
-                [Country.Poland] = (0.23m),
-                [Country.Germany] = (0.19m),
-                [Country.CzechRepublic] = (0.21m),
-                [Country.Norway] = (0.25m)
+                [Country.Unknown] = 0.20m,
+                [Country.Poland] = 0.23m,
+                [Country.Germany] = 0.19m,
+                [Country.CzechRepublic] = 0.21m,
+                [Country.Norway] = 0.25m
         };
 
         private static readonly Dictionary<CustomerSegment, IDiscountStrategy> _segmentDiscounts =
@@ -50,7 +51,7 @@ namespace LegacyRenewalApp.Helper
                 [CustomerSegment.Education] = new EducationDiscountStrategy() 
         };
 
-        public decimal calculateDiscount(
+        public PaymentDetails CalculateFinalAmount(
             Customer customer, SubscriptionPlan plan, 
             int seatCount,
             bool includePremiumSupport, bool useLoyaltyPoints, 
@@ -61,67 +62,118 @@ namespace LegacyRenewalApp.Helper
                 throw new InvalidOperationException("Inactive customers cannot renew subscriptions");
             }
 
-            decimal baseAmount = (plan.MonthlyPricePerSeat * seatCount * 12m) + plan.SetupFee;
-            decimal discountAmount = 0m;
-            string notes = string.Empty;
+            PaymentDetails paymentDetails = new PaymentDetails();
+
+            decimal baseAmount = CalculateBaseAmount(plan, seatCount);
+            var notes = new StringBuilder();
+            paymentDetails.BaseAmount = baseAmount;
+
+            decimal discountAmount = CalculateDiscountAmount(customer, baseAmount, plan, 
+                ref notes, useLoyaltyPoints, seatCount);
+            paymentDetails.DiscountAmount = discountAmount;
+
+            decimal subtotalAfterDiscount = CalculateSubTotalAfterDiscount(baseAmount, discountAmount, ref notes);
+
+            decimal supportFee = CalculateSupportFee(plan, includePremiumSupport, ref notes);
+            paymentDetails.SupportFee = supportFee;
+
+            decimal paymentFee = CalculatePaymentFee(paymentMethod, subtotalAfterDiscount, supportFee, ref notes);
+            paymentDetails.PaymentFee = paymentFee;
+
+            decimal taxRate = GetTaxRateByCountry(customer);
+
+            decimal finalAmount = CalculateFinalAmount(subtotalAfterDiscount, 
+                supportFee, paymentFee, taxRate, 
+                ref notes, ref paymentDetails);
+
+            paymentDetails.FinalAmount = finalAmount;
+
+            return paymentDetails;
+        }
+
+        private decimal CalculateBaseAmount(SubscriptionPlan plan, int seatCount)
+        {
+            return (plan.MonthlyPricePerSeat * seatCount * 12m) + plan.SetupFee;
+        }
+
+        private decimal CalculateDiscountAmount(Customer customer, decimal baseAmount,
+            SubscriptionPlan plan, ref StringBuilder notes, bool useLoyaltyPoints, int seatCount)
+        {
+            decimal discountAmount = 0.0m;
 
             if (_segmentDiscounts.TryGetValue(customer.Segment, out var discountStrategy))
             {
                 discountAmount += discountStrategy.CalculateDiscount(baseAmount, plan);
-                notes += discountStrategy.GetNote();
+                notes.Append(discountStrategy.GetNote());
             }
 
             if (customer.YearsWithCompany >= 5)
             {
                 discountAmount += baseAmount * 0.07m;
-                notes += "long-term loyalty discount; ";
+                notes.Append("long-term loyalty discount; ");
             }
             else if (customer.YearsWithCompany >= 2)
             {
                 discountAmount += baseAmount * 0.03m;
-                notes += "basic loyalty discount; ";
+                notes.Append("basic loyalty discount; ");
             }
 
             if (seatCount >= 50)
             {
                 discountAmount += baseAmount * 0.12m;
-                notes += "large team discount; ";
+                notes.Append("large team discount; ");
             }
             else if (seatCount >= 20)
             {
                 discountAmount += baseAmount * 0.08m;
-                notes += "medium team discount; ";
+                notes.Append("medium team discount; ");
             }
             else if (seatCount >= 10)
             {
                 discountAmount += baseAmount * 0.04m;
-                notes += "small team discount; ";
+                notes.Append("small team discount; ");
             }
 
             if (useLoyaltyPoints && customer.LoyaltyPoints > 0)
             {
                 int pointsToUse = customer.LoyaltyPoints > 200 ? 200 : customer.LoyaltyPoints;
                 discountAmount += pointsToUse;
-                notes += $"loyalty points used: {pointsToUse}; ";
+                notes.Append($"loyalty points used: {pointsToUse}; ");
             }
 
+            return discountAmount;
+        }
+
+        private decimal CalculateSubTotalAfterDiscount(decimal baseAmount, decimal discountAmount,
+            ref StringBuilder notes)
+        {
             decimal subtotalAfterDiscount = baseAmount - discountAmount;
             if (subtotalAfterDiscount < 300m)
             {
                 subtotalAfterDiscount = 300m;
-                notes += "minimum discounted subtotal applied; ";
+                notes.Append("minimum discounted subtotal applied; ");
             }
 
+            return subtotalAfterDiscount;
+        }
+
+        private decimal CalculateSupportFee(SubscriptionPlan plan, bool includePremiumSupport, ref StringBuilder notes)
+        {
             decimal supportFee = 0m;
             PlanCode planCode = plan.Code;
-            if (includePremiumSupport && 
+            if (includePremiumSupport &&
                 _feeStrategies.TryGetValue(planCode, out var feeStrategy))
             {
                 supportFee = feeStrategy.CalculateFee();
-                notes += "premium support included; ";
+                notes.Append("premium support included; ");
             }
 
+            return supportFee;
+        }
 
+        private decimal CalculatePaymentFee(PaymentMethod paymentMethod, 
+            decimal subtotalAfterDiscount, decimal supportFee, ref StringBuilder notes)
+        {
             decimal paymentFee = 0m;
             if (!_paymentConfigs.TryGetValue(paymentMethod, out var config))
             {
@@ -130,17 +182,34 @@ namespace LegacyRenewalApp.Helper
 
             paymentFee = (subtotalAfterDiscount + supportFee) * config.Rate;
 
-            notes += config.Note;
+            notes.Append(config.Note);
 
+            return paymentFee;
+        }
 
-            decimal taxRate = _countryTaxRates.TryGetValue(customer.Country, out var rate) 
-                ? rate : 0.20m;
+        private decimal GetTaxRateByCountry(Customer customer)
+        {
+            return _countryTaxRates.TryGetValue(customer.Country, out var rate)
+                ? rate : _countryTaxRates[Country.Unknown];
+        }
 
+        private decimal CalculateFinalAmount(decimal subtotalAfterDiscount, decimal supportFee, 
+            decimal paymentFee, decimal taxRate, ref StringBuilder notes, ref PaymentDetails paymentDetails)
+        {
             decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;
             decimal taxAmount = taxBase * taxRate;
             decimal finalAmount = taxBase + taxAmount;
 
+            paymentDetails.TaxAmount = taxAmount;
+
+            if (finalAmount < 500m)
+            {
+                finalAmount = 500m;
+                notes.Append("minimum invoice amount applied; ");
+            }
+
             return finalAmount;
         }
+
     }
 }

@@ -1,3 +1,4 @@
+using LegacyRenewalApp.Enums;
 using LegacyRenewalApp.Interfaces.Repositories;
 using LegacyRenewalApp.Models;
 using System;
@@ -10,9 +11,9 @@ namespace LegacyRenewalApp.Repositories
     {
         public static readonly Dictionary<string, SubscriptionPlan> Database = new Dictionary<string, SubscriptionPlan>
         {
-            { "START", new SubscriptionPlan { Code = "START", Name = "Start", MonthlyPricePerSeat = 49m, SetupFee = 120m, IsEducationEligible = false } },
-            { "PRO", new SubscriptionPlan { Code = "PRO", Name = "Professional", MonthlyPricePerSeat = 89m, SetupFee = 180m, IsEducationEligible = true } },
-            { "ENTERPRISE", new SubscriptionPlan { Code = "ENTERPRISE", Name = "Enterprise", MonthlyPricePerSeat = 149m, SetupFee = 300m, IsEducationEligible = false } }
+            { "START", new SubscriptionPlan { Code = PlanCode.START, Name = "Start", MonthlyPricePerSeat = 49m, SetupFee = 120m, IsEducationEligible = false } },
+            { "PRO", new SubscriptionPlan { Code = PlanCode.PRO, Name = "Professional", MonthlyPricePerSeat = 89m, SetupFee = 180m, IsEducationEligible = true } },
+            { "ENTERPRISE", new SubscriptionPlan { Code = PlanCode.ENTERPRISE, Name = "Enterprise", MonthlyPricePerSeat = 149m, SetupFee = 300m, IsEducationEligible = false } }
         };
 
         public SubscriptionPlan GetByCode(string code)

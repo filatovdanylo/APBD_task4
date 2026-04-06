@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace LegacyRenewalApp.Interfaces.Helpers
 {
-    public interface IDiscountCalculator
+    public interface IPriceCalculator
     {
-        decimal calculateDiscount(
+        PaymentDetails CalculateFinalAmount(
             Customer customer, SubscriptionPlan plan, 
             int seatCount,
             bool includePremiumSupport, bool useLoyaltyPoints, 
