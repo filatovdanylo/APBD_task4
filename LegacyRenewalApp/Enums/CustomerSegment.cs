@@ -8,7 +8,7 @@ namespace LegacyRenewalApp.Enums
 {
     public enum CustomerSegment
     {
-        None = 0,
+        Standard = 0,
         Silver,
         Gold,
         Platinum,

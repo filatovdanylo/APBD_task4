@@ -26,10 +26,10 @@ namespace LegacyRenewalApp.Helper
         private static readonly Dictionary<PaymentMethod, (decimal Rate, string Note)> _paymentConfigs =
             new Dictionary<PaymentMethod, (decimal Rate, string Note)>
         {
-            [PaymentMethod.Card] = (0.02m, "card payment fee; "),
-            [PaymentMethod.BankTransfer] = (0.01m, "bank transfer fee; "),
-            [PaymentMethod.Paypal] = (0.035m, "paypal fee; "),
-            [PaymentMethod.Invoice] = (0m, "invoice payment; ")
+            [PaymentMethod.CARD] = (0.02m, "card payment fee; "),
+            [PaymentMethod.BANK_TRANSFER] = (0.01m, "bank transfer fee; "),
+            [PaymentMethod.PAYPAL] = (0.035m, "paypal fee; "),
+            [PaymentMethod.INVOICE] = (0m, "invoice payment; ")
         };
 
         private static readonly Dictionary<Country, decimal> _countryTaxRates =
@@ -82,11 +82,12 @@ namespace LegacyRenewalApp.Helper
 
             decimal taxRate = GetTaxRateByCountry(customer);
 
-            decimal finalAmount = CalculateFinalAmount(subtotalAfterDiscount, 
+            decimal finalAmount = CalculateFinal(subtotalAfterDiscount, 
                 supportFee, paymentFee, taxRate, 
                 ref notes, ref paymentDetails);
 
             paymentDetails.FinalAmount = finalAmount;
+            paymentDetails.Notes = notes.ToString();
 
             return paymentDetails;
         }
@@ -193,7 +194,7 @@ namespace LegacyRenewalApp.Helper
                 ? rate : _countryTaxRates[Country.Unknown];
         }
 
-        private decimal CalculateFinalAmount(decimal subtotalAfterDiscount, decimal supportFee, 
+        private decimal CalculateFinal(decimal subtotalAfterDiscount, decimal supportFee, 
             decimal paymentFee, decimal taxRate, ref StringBuilder notes, ref PaymentDetails paymentDetails)
         {
             decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;

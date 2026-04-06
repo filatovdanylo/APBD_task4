@@ -9,9 +9,9 @@ namespace LegacyRenewalApp.Enums
     public enum PaymentMethod
     {
         None = 0,
-        Card,
-        BankTransfer,
-        Paypal,
-        Invoice
+        CARD,
+        BANK_TRANSFER,
+        PAYPAL,
+        INVOICE
     }
 }
