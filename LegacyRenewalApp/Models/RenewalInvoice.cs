@@ -9,7 +9,7 @@ namespace LegacyRenewalApp.Models
         public string CustomerName { get; set; } = string.Empty;
         public string PlanCode { get; set; } = string.Empty;
 
-        //I am not really sure if this breaks our contract, since PaymentMethod is never explicitly used as a string in Legacy classes.
+        // I am not really sure if this breaks our contract, since PaymentMethod is never explicitly used as a string in Legacy classes.
         // Assuming that the legacy classes will never change we can use enum here for additional safety and clarity
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.None;
         public int SeatCount { get; set; }
