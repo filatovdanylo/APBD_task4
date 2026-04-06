@@ -1,5 +1,6 @@
 using LegacyRenewalApp.Helper;
-using LegacyRenewalApp.Interfaces;
+using LegacyRenewalApp.Interfaces.Helpers;
+using LegacyRenewalApp.Interfaces.Repositories;
 using LegacyRenewalApp.Models;
 using LegacyRenewalApp.Repositories;
 using System;
@@ -51,7 +52,6 @@ namespace LegacyRenewalApp
             string normalizedPlanCode = planCode.Trim().ToUpperInvariant();
             string normalizedPaymentMethod = paymentMethod.Trim().ToUpperInvariant();
 
-           
             var customer = _customerRepository.GetById(customerId);
             var plan = _planRepository.GetByCode(normalizedPlanCode);
 

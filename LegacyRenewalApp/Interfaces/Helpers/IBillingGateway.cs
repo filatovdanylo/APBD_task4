@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LegacyRenewalApp.Interfaces
+namespace LegacyRenewalApp.Interfaces.Helpers
 {
     public interface IBillingGateway
     {

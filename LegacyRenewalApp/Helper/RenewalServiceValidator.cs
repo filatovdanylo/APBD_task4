@@ -1,4 +1,4 @@
-﻿using LegacyRenewalApp.Interfaces;
+﻿using LegacyRenewalApp.Interfaces.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;

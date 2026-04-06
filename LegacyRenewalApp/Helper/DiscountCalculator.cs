@@ -1,4 +1,4 @@
-﻿using LegacyRenewalApp.Interfaces;
+﻿using LegacyRenewalApp.Interfaces.Helpers;
 using LegacyRenewalApp.Models;
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,11 @@ namespace LegacyRenewalApp.Helper
 {
     public class DiscountCalculator : IDiscountCalculator
     {
-        public decimal calculateDiscount(Customer customer, string planCode, int seatCount )
+        public decimal calculateDiscount(
+            Customer customer, SubscriptionPlan plan, 
+            int seatCount,
+            bool includePremiumSupport, bool useLoyaltyPoints, 
+            string normalizedPaymentMethod)
         {
             if (!customer.IsActive)
             {
@@ -85,17 +89,18 @@ namespace LegacyRenewalApp.Helper
             }
 
             decimal supportFee = 0m;
+            string planCode = plan.Code;
             if (includePremiumSupport)
             {
-                if (normalizedPlanCode == "START")
+                if (planCode == "START")
                 {
                     supportFee = 250m;
                 }
-                else if (normalizedPlanCode == "PRO")
+                else if (planCode == "PRO")
                 {
                     supportFee = 400m;
                 }
-                else if (normalizedPlanCode == "ENTERPRISE")
+                else if (planCode == "ENTERPRISE")
                 {
                     supportFee = 700m;
                 }
@@ -150,6 +155,8 @@ namespace LegacyRenewalApp.Helper
             decimal taxBase = subtotalAfterDiscount + supportFee + paymentFee;
             decimal taxAmount = taxBase * taxRate;
             decimal finalAmount = taxBase + taxAmount;
+
+            return finalAmount;
         }
     }
 }

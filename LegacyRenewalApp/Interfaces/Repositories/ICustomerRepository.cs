@@ -5,10 +5,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace LegacyRenewalApp.Interfaces
+namespace LegacyRenewalApp.Interfaces.Repositories
 {
-    public interface IDiscountCalculator
+    public interface ICustomerRepository
     {
-        decimal calculateDiscount(Customer customer, string planCode, )
+        Customer GetById(int customerId);
     }
 }
